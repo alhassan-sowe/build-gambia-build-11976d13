@@ -1,210 +1,123 @@
-# Envora Marketplace — Build Plan
 
-## Overview
-A mobile-first, premium marketplace where buyers order construction materials, suppliers manage listings/orders, and admins approve suppliers and oversee the platform. Built on TanStack Start + Lovable Cloud (Supabase).
+# Envora Redesign — Mobile-First Marketplace
 
-## Phase 1: Foundation & Database
+A full visual + structural overhaul. Keeps all existing routes, server functions, schema, and auth. Only frontend (routes, components, styles) changes.
 
-### 1.1 Enable Lovable Cloud
-- Provision Supabase project with auth, database, and storage.
+## Design language
 
-### 1.2 Database Schema (Migrations)
-Create the following tables with RLS policies and GRANTs:
+- **Palette (locked)**: Orange `#FF6A00` primary CTA, Charcoal `#111827` surface/header, Amber `#F97316` accents, Cream `#FFF7ED` background tint. Tokens written into `src/styles.css` as oklch.
+- **Type**: Inter (already loaded). Bigger display weights, tighter tracking, generous line-height for cards.
+- **Density**: Amazon-like info density on listings; Uber-like calm on action screens (checkout, order detail); Alibaba-like supplier/category surfacing on home.
+- **Components**: rounded-2xl cards, soft shadows, sticky bottom CTAs on mobile, thumb-reach navigation.
 
-- **profiles**
-  - `id` (uuid, PK, FK → auth.users)
-  - `email`, `name`, `phone`, `location`
-  - `role` (enum: BUYER, SUPPLIER, ADMIN)
-  - `is_active` (boolean, for supplier approval)
-  - `created_at`
+## Information architecture (no new routes, richer screens)
 
-- **categories**
-  - `id` (uuid, PK)
-  - `name` (unique), `description`
-  - `created_at`
-
-- **products**
-  - `id` (uuid, PK)
-  - `name`, `description`
-  - `price` (numeric), `unit` (text), `stock` (int)
-  - `image_url`, `location`, `is_active`
-  - `supplier_id` (FK → profiles.id)
-  - `category_id` (FK → categories.id)
-  - `created_at`, `updated_at`
-
-- **orders**
-  - `id` (uuid, PK)
-  - `buyer_id` (FK → profiles.id)
-  - `total` (numeric), `delivery_address`, `phone`, `notes`
-  - `status` (enum: PENDING, CONFIRMED, DELIVERING, DELIVERED, CANCELED)
-  - `created_at`, `updated_at`
-
-- **order_items**
-  - `id` (uuid, PK)
-  - `order_id` (FK → orders.id)
-  - `product_id` (FK → products.id)
-  - `quantity` (int), `price` (numeric)
-
-### 1.3 Seed Data
-- Insert default categories: Cement, Sand, Blocks, Gravel, Iron Rods, Tiles, Transport.
-- Create a default admin user (via service role, to be configured by user later if needed).
-
-### 1.4 Auth Setup
-- Configure email/password + Google OAuth auth.
-- Create profile on signup via database trigger.
-- Default role is BUYER; SUPPLIER requires admin approval (`is_active` = false by default).
-
-## Phase 2: Design System & Shared Components
-
-### 2.1 Color Tokens (styles.css)
-Update to Construction Amber + Navy:
-- Primary navy: `#0B2545`
-- Accent amber: `#F59E0B`
-- Surface dark: `#1E293B`
-- Background: `#F8FAFC`
-
-### 2.2 Shared Components
-- **Navbar**: logo, nav links, auth state (login / user name + role dropdown), cart icon with count.
-- **Footer**: contact info, WhatsApp link, email, FAQ accordion.
-- **Layout shells**: public layout, authenticated layout (ssr: false), admin layout.
-- **ProductCard**: image, name, price/unit, stock badge, supplier name, location, "Order" button.
-- **OrderStatusBadge**: colored badges for each status.
-- **EmptyState**: icon + message for empty lists.
-
-## Phase 3: Public Routes & Buyer Flow
-
-### 3.1 Landing Page (`/`)
-- Hero: "Envora — Order construction materials directly in The Gambia."
-- Subhead with material types.
-- CTAs: "Order Now" → catalog, "Become a Supplier" → register with role=supplier.
-- Category preview grid.
-
-### 3.2 Auth Page (`/auth`)
-- Tabs: Login / Register.
-- Fields: email, password, name, phone, location.
-- Role selector: Buyer or Supplier.
-- Google sign-in option.
-
-### 3.3 Materials Catalog (`/materials`)
-- Search bar.
-- Category filter chips.
-- Product card grid.
-- "Order" button on each card (redirects to login if unauthenticated).
-
-### 3.4 Product Details (`/materials/$productId`)
-- Product image, name, description, price, unit, stock.
-- Supplier info and phone.
-- "Add to Cart" and "Order Now" buttons.
-
-### 3.5 Cart / Checkout (`/checkout`)
-- Cart items list with quantity adjusters.
-- Delivery address form, phone, delivery date picker, notes.
-- "Place Order" button → creates order + order_items, sets status PENDING.
-- Success toast + redirect to buyer dashboard.
-
-### 3.6 Buyer Dashboard (`/_authenticated/dashboard`)
-- Past and current orders list.
-- Order details modal/drawer.
-- Status tracking (PENDING → CONFIRMED → DELIVERING → DELIVERED).
-- "Reorder" button (pre-fills cart with same items).
-
-## Phase 4: Supplier Flow
-
-### 4.1 Supplier Dashboard (`/_authenticated/supplier`)
-- **Overview**: stats cards (products count, pending orders, total sales).
-- **Products tab**: add, edit, delete products. Form with name, description, price, unit, stock, category, image upload, location.
-- **Orders tab**: incoming orders list. Actions: accept (CONFIRMED), reject (CANCELED), update status (DELIVERING, DELIVERED).
-- **Profile tab**: update contact info and location.
-
-### 4.2 Product Image Upload
-- Use Supabase Storage bucket "product-images" (public).
-- Upload via server function, return public URL.
-
-## Phase 5: Admin Flow
-
-### 5.1 Admin Dashboard (`/_authenticated/admin`)
-- **Suppliers**: list of suppliers with toggle to approve/reject (`is_active`).
-- **Categories**: CRUD for categories.
-- **Products**: view all products, edit, delete, toggle `is_active`.
-- **Orders**: view all orders with filters by status.
-- **Users**: view all profiles, manage roles.
-
-## Phase 6: Server Functions
-
-Create server functions for all data operations:
-- `getProducts`, `getProductById`, `createProduct`, `updateProduct`, `deleteProduct`
-- `getCategories`, `createCategory`, `updateCategory`, `deleteCategory`
-- `createOrder`, `getMyOrders`, `getSupplierOrders`, `updateOrderStatus`
-- `getProfile`, `updateProfile`, `getAllUsers`, `updateUserRole`, `toggleSupplierApproval`
-- `uploadProductImage`
-
-All protected functions use `requireSupabaseAuth` middleware.
-Role checks happen inside handlers (BUYER, SUPPLIER, ADMIN).
-
-## Phase 7: Navigation & Access Control
-
-### Route Guards
-- `/_authenticated/*`: requires login (integration-managed layout, ssr: false).
-- Supplier routes: check role === SUPPLIER + is_active.
-- Admin routes: check role === ADMIN.
-- Public routes (/, /materials, /materials/$id): no auth required for browsing.
-
-### Navbar Logic
-- Unauthenticated: "Log In" button.
-- Authenticated: user name + role dropdown with dashboard links (buyer/supplier/admin based on role) + logout.
-
-## Phase 8: UX Polish
-
-- Loading skeletons for catalog and dashboards.
-- Empty states for no products, no orders.
-- Success toasts: order placed, product added, profile updated.
-- Mobile-first responsive design throughout.
-- Error boundaries on all routes with loaders.
-
-## File Structure
-
-```
-src/
-  routes/
-    __root.tsx              (root layout, navbar, footer)
-    index.tsx               (landing)
-    auth.tsx                (login/register)
-    materials.tsx           (catalog)
-    materials.$productId.tsx (product detail)
-    checkout.tsx            (cart/checkout)
-    contact.tsx             (support/contact)
-    _authenticated/
-      route.tsx             (auth guard layout)
-      dashboard.tsx         (buyer dashboard)
-      supplier.tsx          (supplier dashboard)
-      admin.tsx             (admin dashboard)
-  lib/
-    products.functions.ts
-    orders.functions.ts
-    categories.functions.ts
-    profiles.functions.ts
-    storage.functions.ts
-  components/
-    ui/                     (shadcn components)
-    product-card.tsx
-    order-status-badge.tsx
-    navbar.tsx
-    footer.tsx
-    empty-state.tsx
-  integrations/
-    supabase/               (client, auth-middleware, client.server, auth-attacher)
+```text
+Home (/)              Hero search + categories rail + flash deals + top suppliers + trust strip
+Materials (/materials) Sticky filter bar, chips, sort, grid/list toggle, infinite-feel grid
+Product (/materials/$) Gallery, sticky "Add to cart" bar, supplier card, specs, related
+Checkout (/checkout)   Cart edit → delivery → review (stepper), sticky total bar
+Auth (/auth)           Cleaner split layout, social first
+Dashboards             Card-stat header, tabbed content, mobile bottom tab nav inside dash
 ```
 
-## Deployment Checklist
-- Lovable Cloud enabled.
-- All migrations applied.
-- Seed categories inserted.
-- Google OAuth configured (if user provides client ID).
-- Storage bucket created.
-- Build passes with strict TypeScript.
+## Screen-by-screen changes
 
-## Open Questions (none blocking)
-1. Should product listings also require admin approval, or only supplier accounts? → Plan assumes only supplier accounts require approval; approved suppliers can list immediately.
-2. Product images: start with generated/uploaded placeholders; suppliers can upload real images via dashboard.
+### 1. Global shell
+- Sticky top header: logo + big search (Amazon-style) + cart + account. Search collapses to icon on small screens with expandable overlay.
+- **Mobile bottom tab bar** (Uber/Alibaba apps): Home · Browse · Cart · Orders · Account. Hidden on desktop.
+- Footer simplified, trust badges row above it.
 
-Once you approve this plan, I will begin implementation starting with enabling Lovable Cloud and creating the database schema.
+### 2. Home `/`
+- **Hero**: location pill ("Deliver to: Banjul ▾"), oversized search with category dropdown, 2 quick chips ("Cement", "Iron rods").
+- **Category rail**: horizontal scroll, 7 round icon tiles (Alibaba-style).
+- **Flash deals / Featured products**: horizontal scroll card row.
+- **Top suppliers**: avatar + name + rating + location chips.
+- **How it works**: 3 steps with icons.
+- **Trust strip**: "Verified suppliers", "Direct from source", "Cash on delivery".
+
+### 3. Materials `/materials`
+- Sticky filter bar: search, category chips, sort dropdown, grid/list toggle.
+- Left filter drawer on desktop (price, location, in-stock); mobile = bottom sheet filter.
+- Product cards: image, name, price/unit, supplier, location, stock badge, quick "+ Add".
+
+### 4. Product detail
+- Mobile: full-bleed image gallery, title block, price card, quantity stepper, sticky bottom "Add to cart" + "Buy now".
+- Supplier card with avatar, location, response info (placeholder), "View supplier" link.
+- Tabs: Description · Specs · Delivery · Reviews (reviews empty-state for now).
+- Related products row.
+
+### 5. Cart / Checkout
+- Stepper: 1 Cart → 2 Delivery → 3 Review.
+- Editable line items with quantity steppers, per-line subtotal, remove.
+- Delivery form: name, phone, address, notes, location pill.
+- Review: order summary + supplier breakdown + sticky "Place order" bar with total.
+- Success screen with order number, "Track order" CTA → buyer dashboard.
+
+### 6. Auth `/auth`
+- Two-column on desktop (brand panel + form), single column on mobile.
+- Google button first, divider, email/password, role toggle (Buyer/Supplier) with note about admin approval.
+
+### 7. Buyer dashboard `/dashboard`
+- Header stat cards: Active orders, Delivered, Total spent.
+- Tabs: Orders · Profile.
+- Order cards with status pill, items preview, total, "View details" drawer.
+
+### 8. Supplier dashboard `/supplier`
+- Approval banner if `is_active=false`.
+- Stat cards: Products, Pending orders, Revenue, Out-of-stock.
+- Tabs: Products (table on desktop / cards on mobile, add/edit dialog) · Orders (status updater) · Profile.
+
+### 9. Admin `/admin`
+- Stat cards: Suppliers pending, Total users, Total orders, Active products.
+- Tabs: Suppliers (approve/reject) · Categories (CRUD) · Products · Orders · Users.
+
+## New / updated files
+
+```text
+src/styles.css                                update palette tokens
+src/components/navbar.tsx                     redesigned with search
+src/components/bottom-nav.tsx                 new mobile tab bar
+src/components/search-bar.tsx                 new global search
+src/components/category-rail.tsx              new
+src/components/supplier-card.tsx              new
+src/components/product-card.tsx               redesigned (compact + list variant)
+src/components/quantity-stepper.tsx           new
+src/components/section-header.tsx             new
+src/components/filter-sheet.tsx               new mobile filter
+src/components/checkout-stepper.tsx           new
+src/components/stat-card.tsx                  new for dashboards
+src/components/footer.tsx                     redesigned
+src/routes/__root.tsx                         mount bottom nav + new shell
+src/routes/index.tsx                          full home rebuild
+src/routes/materials.tsx                      filter bar + grid/list
+src/routes/materials.$productId.tsx           gallery + sticky CTA
+src/routes/checkout.tsx                       3-step stepper
+src/routes/auth.tsx                           split layout
+src/routes/_authenticated/dashboard.tsx       buyer redesign
+src/routes/_authenticated/supplier.tsx        supplier redesign
+src/routes/_authenticated/admin.tsx           admin redesign
+```
+
+No DB migrations, no server function changes, no auth/RLS changes.
+
+## Technical notes
+
+- All colors via tokens in `src/styles.css` (`--primary`, `--accent`, etc.) — no hard-coded hex in components.
+- `oklch` values for the new palette:
+  - `--primary` orange `#FF6A00` ≈ `oklch(0.68 0.21 45)`
+  - `--accent` amber `#F97316` ≈ `oklch(0.72 0.19 50)`
+  - `--background` cream `#FFF7ED` ≈ `oklch(0.985 0.02 75)`
+  - `--foreground` / sidebar charcoal `#111827` ≈ `oklch(0.21 0.03 260)`
+- Dark mode kept (charcoal surface + orange CTA).
+- Bottom nav rendered only on mobile (`md:hidden`) and only when not on auth route; route detection via `useRouterState`.
+- Keep all `createServerFn` calls and TanStack Query usage as-is.
+- Cart logic in `src/lib/cart.ts` unchanged; UI rewritten.
+- Use existing shadcn `sheet`, `tabs`, `dialog`, `dropdown-menu`, `drawer` for new patterns.
+
+## Out of scope (this pass)
+
+- Product reviews data model
+- Real-time order tracking
+- Image upload pipeline (still placeholder + URL field)
+- Payments
