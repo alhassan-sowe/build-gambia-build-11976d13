@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { OrderStatusBadge } from "@/components/order-status-badge";
 import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/use-auth";
@@ -20,9 +20,17 @@ import { deleteProduct, toggleProductActive } from "@/lib/products.functions";
 import { listAllOrders } from "@/lib/orders.functions";
 import { listAllInquiries, updateInquiryStatus } from "@/lib/inquiries.functions";
 import { formatGMD } from "@/lib/cart";
+import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/lib/types";
 
 export const Route = createFileRoute("/_authenticated/admin")({
+  beforeLoad: async () => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) throw redirect({ to: "/auth" });
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+    const isAdmin = (roles || []).some((r: any) => r.role === "ADMIN");
+    if (!isAdmin) throw redirect({ to: "/" });
+  },
   component: AdminDashboard,
 });
 
@@ -60,10 +68,15 @@ function AdminDashboard() {
 
 function SuppliersTab() {
   const qc = useQueryClient();
+  const [selected, setSelected] = useState<any | null>(null);
   const { data: users = [] } = useQuery({ queryKey: ["all-profiles"], queryFn: () => listAllProfiles() });
   const mut = useMutation({
     mutationFn: (v: { id: string; is_active: boolean }) => setSupplierActive({ data: v }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["all-profiles"] }); toast.success("Updated"); },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["all-profiles"] });
+      toast.success(v.is_active ? "Supplier approved" : "Supplier rejected");
+      setSelected(null);
+    },
     onError: (e: any) => toast.error(e.message),
   });
   const suppliers = users.filter((u: any) => u.role === "SUPPLIER");
@@ -72,18 +85,19 @@ function SuppliersTab() {
 
   const Row = ({ u, showApprove }: { u: any; showApprove?: boolean }) => (
     <Card key={u.id} className="p-4 flex items-center justify-between gap-3 flex-wrap">
-      <div className="min-w-0">
-        <div className="font-medium flex items-center gap-2">
+      <button onClick={() => setSelected(u)} className="min-w-0 text-left flex-1">
+        <div className="font-medium flex items-center gap-2 flex-wrap">
           {u.name || "Unnamed"}
           {u.is_active ? <Badge variant="secondary">Approved</Badge> : <Badge variant="destructive">Pending</Badge>}
         </div>
-        <div className="text-sm text-muted-foreground">{u.email} · {u.phone} · {u.location}</div>
-      </div>
+        <div className="text-sm text-muted-foreground truncate">{u.email} · {u.phone || "no phone"} · {u.location || "no location"}</div>
+        <div className="text-xs text-muted-foreground mt-1">Applied {new Date(u.created_at).toLocaleDateString()}</div>
+      </button>
       <div className="flex items-center gap-2">
         {showApprove ? (
           <>
-            <Button size="sm" onClick={() => mut.mutate({ id: u.id, is_active: true })}>Approve</Button>
-            <Button size="sm" variant="ghost" onClick={() => mut.mutate({ id: u.id, is_active: false })}>Reject</Button>
+            <Button size="sm" onClick={() => setSelected({ ...u, _action: "approve" })}>Approve</Button>
+            <Button size="sm" variant="outline" onClick={() => setSelected({ ...u, _action: "reject" })}>Reject</Button>
           </>
         ) : (
           <div className="flex items-center gap-2">
@@ -109,6 +123,39 @@ function SuppliersTab() {
           <div className="space-y-3">{approved.map((u: any) => <Row key={u.id} u={u} />)}</div>
         )}
       </section>
+
+      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <DialogContent className="max-w-md">
+          {selected && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  {selected.name || "Unnamed supplier"}
+                  {selected.is_active ? <Badge variant="secondary">Approved</Badge> : <Badge variant="destructive">Pending</Badge>}
+                </DialogTitle>
+                <DialogDescription>Review supplier details before deciding.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 text-sm">
+                <div><span className="text-muted-foreground">Email:</span> {selected.email || "—"}</div>
+                <div><span className="text-muted-foreground">Phone:</span> {selected.phone || "—"}</div>
+                <div><span className="text-muted-foreground">Location:</span> {selected.location || "—"}</div>
+                <div><span className="text-muted-foreground">Applied:</span> {new Date(selected.created_at).toLocaleString()}</div>
+                <div><span className="text-muted-foreground">Status:</span> {selected.is_active ? "Active — can list products" : "Pending — cannot list yet"}</div>
+              </div>
+              <DialogFooter className="flex gap-2 sm:flex-row flex-col">
+                {selected.is_active ? (
+                  <Button variant="destructive" disabled={mut.isPending} onClick={() => mut.mutate({ id: selected.id, is_active: false })}>Suspend supplier</Button>
+                ) : (
+                  <>
+                    <Button variant="outline" disabled={mut.isPending} onClick={() => mut.mutate({ id: selected.id, is_active: false })}>Reject</Button>
+                    <Button disabled={mut.isPending} onClick={() => mut.mutate({ id: selected.id, is_active: true })}>Approve supplier</Button>
+                  </>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
