@@ -21,7 +21,7 @@ export const listProducts = createServerFn({ method: "GET" })
       .map((r: any) => ({
         ...r,
         supplier_name: r.profiles?.name ?? null,
-        supplier_phone: r.profiles?.phone ?? null,
+        supplier_phone: null,
         category_name: r.categories?.name ?? null,
       }));
   });
