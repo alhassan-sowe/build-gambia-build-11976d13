@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { OrderStatusBadge } from "@/components/order-status-badge";
 import { EmptyState } from "@/components/empty-state";
 import { useAuth } from "@/lib/use-auth";
@@ -20,9 +20,17 @@ import { deleteProduct, toggleProductActive } from "@/lib/products.functions";
 import { listAllOrders } from "@/lib/orders.functions";
 import { listAllInquiries, updateInquiryStatus } from "@/lib/inquiries.functions";
 import { formatGMD } from "@/lib/cart";
+import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/lib/types";
 
 export const Route = createFileRoute("/_authenticated/admin")({
+  beforeLoad: async () => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) throw redirect({ to: "/auth" });
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id);
+    const isAdmin = (roles || []).some((r: any) => r.role === "ADMIN");
+    if (!isAdmin) throw redirect({ to: "/" });
+  },
   component: AdminDashboard,
 });
 
