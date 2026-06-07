@@ -40,7 +40,7 @@ export const getProduct = createServerFn({ method: "GET" })
     return {
       ...r,
       supplier_name: r.profiles?.name ?? null,
-      supplier_phone: r.profiles?.phone ?? null,
+      supplier_phone: null,
       category_name: r.categories?.name ?? null,
     };
   });
