@@ -18,6 +18,7 @@ import { listAllProfiles, setSupplierActive, setUserRole, listAllProducts } from
 import { listCategories, createCategory, deleteCategory } from "@/lib/categories.functions";
 import { deleteProduct, toggleProductActive } from "@/lib/products.functions";
 import { listAllOrders } from "@/lib/orders.functions";
+import { listAllInquiries, updateInquiryStatus } from "@/lib/inquiries.functions";
 import { formatGMD } from "@/lib/cart";
 import type { AppRole } from "@/lib/types";
 
