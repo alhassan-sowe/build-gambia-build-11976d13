@@ -31,7 +31,7 @@ export const getProduct = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const { data: row, error } = await supabaseAdmin
       .from("products")
-      .select("*, profiles!products_supplier_id_fkey(name, phone, location), categories(name)")
+      .select("*, profiles!products_supplier_id_fkey(name, location), categories(name)")
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
