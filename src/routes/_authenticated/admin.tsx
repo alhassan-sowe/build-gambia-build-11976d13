@@ -45,12 +45,14 @@ function AdminDashboard() {
           <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="inquiries">Inquiries</TabsTrigger>
         </TabsList>
         <TabsContent value="suppliers" className="mt-6"><SuppliersTab /></TabsContent>
         <TabsContent value="users" className="mt-6"><UsersTab /></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesTab /></TabsContent>
         <TabsContent value="products" className="mt-6"><ProductsTab /></TabsContent>
         <TabsContent value="orders" className="mt-6"><OrdersTab /></TabsContent>
+        <TabsContent value="inquiries" className="mt-6"><InquiriesTab /></TabsContent>
       </Tabs>
     </div>
   );
