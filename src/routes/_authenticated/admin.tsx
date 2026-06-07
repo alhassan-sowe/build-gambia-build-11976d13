@@ -141,6 +141,8 @@ function InquiriesTab() {
     </div>
   );
 }
+
+function UsersTab() {
   const qc = useQueryClient();
   const { data: users = [] } = useQuery({ queryKey: ["all-profiles"], queryFn: () => listAllProfiles() });
   const mut = useMutation({
