@@ -9,7 +9,7 @@ export const listProducts = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     let q = supabaseAdmin
       .from("products")
-      .select("*, profiles!products_supplier_id_fkey(name, phone, is_active), categories(name)")
+      .select("*, profiles!products_supplier_id_fkey(name, is_active), categories(name)")
       .eq("is_active", true)
       .order("created_at", { ascending: false });
     if (data.categoryId) q = q.eq("category_id", data.categoryId);
