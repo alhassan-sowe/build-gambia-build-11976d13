@@ -1,0 +1,15 @@
+{
+  "name": "Envora — Construction Materials Marketplace",
+  "short_name": "Envora",
+  "description": "Order construction materials directly from trusted suppliers across The Gambia.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0F172A",
+  "theme_color": "#F37021",
+  "icons": [
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
