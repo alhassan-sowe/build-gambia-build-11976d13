@@ -9,7 +9,7 @@ export const listProducts = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     let q = supabaseAdmin
       .from("products")
-      .select("*, profiles!products_supplier_id_fkey(name, phone, is_active), categories(name)")
+      .select("*, profiles!products_supplier_id_fkey(name, is_active), categories(name)")
       .eq("is_active", true)
       .order("created_at", { ascending: false });
     if (data.categoryId) q = q.eq("category_id", data.categoryId);
@@ -21,7 +21,7 @@ export const listProducts = createServerFn({ method: "GET" })
       .map((r: any) => ({
         ...r,
         supplier_name: r.profiles?.name ?? null,
-        supplier_phone: r.profiles?.phone ?? null,
+        supplier_phone: null,
         category_name: r.categories?.name ?? null,
       }));
   });
@@ -31,7 +31,7 @@ export const getProduct = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const { data: row, error } = await supabaseAdmin
       .from("products")
-      .select("*, profiles!products_supplier_id_fkey(name, phone, location), categories(name)")
+      .select("*, profiles!products_supplier_id_fkey(name, location), categories(name)")
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -40,7 +40,7 @@ export const getProduct = createServerFn({ method: "GET" })
     return {
       ...r,
       supplier_name: r.profiles?.name ?? null,
-      supplier_phone: r.profiles?.phone ?? null,
+      supplier_phone: null,
       category_name: r.categories?.name ?? null,
     };
   });
