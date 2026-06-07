@@ -106,11 +106,18 @@ function LoginForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Welcome back!");
-    navigate({ to: "/" });
+    let dest = "/";
+    const uid = data.user?.id;
+    if (uid) {
+      const { data: p } = await supabase.from("profiles").select("role").eq("id", uid).maybeSingle();
+      const role = (p as any)?.role;
+      dest = role === "ADMIN" ? "/admin" : role === "SUPPLIER" ? "/supplier" : "/dashboard";
+    }
+    navigate({ to: dest });
   }
   return (
     <form onSubmit={onSubmit} className="space-y-4 mt-4">
