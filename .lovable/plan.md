@@ -1,123 +1,39 @@
+# Switch Envora to your Supabase project
 
-# Envora Redesign — Mobile-First Marketplace
+You confirmed the schema is applied on your project, so this is purely a credentials + types swap.
 
-A full visual + structural overhaul. Keeps all existing routes, server functions, schema, and auth. Only frontend (routes, components, styles) changes.
+## What I'll do
 
-## Design language
+1. **Update `.env`** with your project values:
+   - `VITE_SUPABASE_URL` / `SUPABASE_URL` → `https://myrhqvedhjmfdtzmkmet.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_PUBLISHABLE_KEY` → your `sb_publishable_...` key
+   - Remove `*_PROJECT_ID` (no longer applicable to your project).
+2. **Store `SUPABASE_SERVICE_ROLE_KEY`** (your `sb_secret_...`) via the secrets tool so server functions can use `supabaseAdmin`.
+3. **Regenerate `src/integrations/supabase/types.ts`** to match your project's schema so all server fns/components stay type-safe.
+4. **Restart dev server** so Vite picks up the new env values.
 
-- **Palette (locked)**: Orange `#FF6A00` primary CTA, Charcoal `#111827` surface/header, Amber `#F97316` accents, Cream `#FFF7ED` background tint. Tokens written into `src/styles.css` as oklch.
-- **Type**: Inter (already loaded). Bigger display weights, tighter tracking, generous line-height for cards.
-- **Density**: Amazon-like info density on listings; Uber-like calm on action screens (checkout, order detail); Alibaba-like supplier/category surfacing on home.
-- **Components**: rounded-2xl cards, soft shadows, sticky bottom CTAs on mobile, thumb-reach navigation.
+## Heads-up (read before approving)
 
-## Information architecture (no new routes, richer screens)
+- **Data does not migrate.** Existing users, products, categories, orders on Lovable Cloud stay on Lovable Cloud. Your app will start empty (whatever is in your project).
+- **Re-register at `/auth`.** The first account on your project starts as BUYER. To promote yourself to ADMIN, run this in your Supabase SQL editor after signing up:
+  ```sql
+  update public.profiles set role='ADMIN' where email='you@example.com';
+  insert into public.user_roles(user_id, role)
+    select id, 'ADMIN' from auth.users where email='you@example.com'
+    on conflict do nothing;
+  ```
+- **Google sign-in** currently uses the Lovable broker. On your own project it will fail until you configure Google in Supabase → Authentication → Providers (Client ID/Secret + add `https://myrhqvedhjmfdtzmkmet.supabase.co/auth/v1/callback` to Google Console). Email/password keeps working immediately.
+- **Lovable Cloud tools stop applying** to this app: the in-app DB migration tool, security scanner, and backend UI all point to the Cloud project, not yours. Future schema changes you'll run yourself in the Supabase SQL editor.
+- **Storage:** the `product-images` bucket existed on Cloud. Make sure you created the equivalent bucket on your project (private, with the same policies) or product image uploads will fail.
 
-```text
-Home (/)              Hero search + categories rail + flash deals + top suppliers + trust strip
-Materials (/materials) Sticky filter bar, chips, sort, grid/list toggle, infinite-feel grid
-Product (/materials/$) Gallery, sticky "Add to cart" bar, supplier card, specs, related
-Checkout (/checkout)   Cart edit → delivery → review (stepper), sticky total bar
-Auth (/auth)           Cleaner split layout, social first
-Dashboards             Card-stat header, tabbed content, mobile bottom tab nav inside dash
-```
+## If anything is missing in your schema
 
-## Screen-by-screen changes
+Tell me which of these you have on your project and I'll send back exact SQL for the gaps:
+- enum `app_role` (`BUYER`,`SUPPLIER`,`ADMIN`) and enum `order_status`
+- tables: `profiles`, `user_roles`, `categories`, `products`, `orders`, `order_items`, `inquiries`
+- functions: `has_role`, `handle_new_user`, `order_belongs_to_supplier`, `set_updated_at`
+- trigger on `auth.users` calling `handle_new_user`
+- RLS enabled + policies on every table above
+- storage bucket `product-images`
 
-### 1. Global shell
-- Sticky top header: logo + big search (Amazon-style) + cart + account. Search collapses to icon on small screens with expandable overlay.
-- **Mobile bottom tab bar** (Uber/Alibaba apps): Home · Browse · Cart · Orders · Account. Hidden on desktop.
-- Footer simplified, trust badges row above it.
-
-### 2. Home `/`
-- **Hero**: location pill ("Deliver to: Banjul ▾"), oversized search with category dropdown, 2 quick chips ("Cement", "Iron rods").
-- **Category rail**: horizontal scroll, 7 round icon tiles (Alibaba-style).
-- **Flash deals / Featured products**: horizontal scroll card row.
-- **Top suppliers**: avatar + name + rating + location chips.
-- **How it works**: 3 steps with icons.
-- **Trust strip**: "Verified suppliers", "Direct from source", "Cash on delivery".
-
-### 3. Materials `/materials`
-- Sticky filter bar: search, category chips, sort dropdown, grid/list toggle.
-- Left filter drawer on desktop (price, location, in-stock); mobile = bottom sheet filter.
-- Product cards: image, name, price/unit, supplier, location, stock badge, quick "+ Add".
-
-### 4. Product detail
-- Mobile: full-bleed image gallery, title block, price card, quantity stepper, sticky bottom "Add to cart" + "Buy now".
-- Supplier card with avatar, location, response info (placeholder), "View supplier" link.
-- Tabs: Description · Specs · Delivery · Reviews (reviews empty-state for now).
-- Related products row.
-
-### 5. Cart / Checkout
-- Stepper: 1 Cart → 2 Delivery → 3 Review.
-- Editable line items with quantity steppers, per-line subtotal, remove.
-- Delivery form: name, phone, address, notes, location pill.
-- Review: order summary + supplier breakdown + sticky "Place order" bar with total.
-- Success screen with order number, "Track order" CTA → buyer dashboard.
-
-### 6. Auth `/auth`
-- Two-column on desktop (brand panel + form), single column on mobile.
-- Google button first, divider, email/password, role toggle (Buyer/Supplier) with note about admin approval.
-
-### 7. Buyer dashboard `/dashboard`
-- Header stat cards: Active orders, Delivered, Total spent.
-- Tabs: Orders · Profile.
-- Order cards with status pill, items preview, total, "View details" drawer.
-
-### 8. Supplier dashboard `/supplier`
-- Approval banner if `is_active=false`.
-- Stat cards: Products, Pending orders, Revenue, Out-of-stock.
-- Tabs: Products (table on desktop / cards on mobile, add/edit dialog) · Orders (status updater) · Profile.
-
-### 9. Admin `/admin`
-- Stat cards: Suppliers pending, Total users, Total orders, Active products.
-- Tabs: Suppliers (approve/reject) · Categories (CRUD) · Products · Orders · Users.
-
-## New / updated files
-
-```text
-src/styles.css                                update palette tokens
-src/components/navbar.tsx                     redesigned with search
-src/components/bottom-nav.tsx                 new mobile tab bar
-src/components/search-bar.tsx                 new global search
-src/components/category-rail.tsx              new
-src/components/supplier-card.tsx              new
-src/components/product-card.tsx               redesigned (compact + list variant)
-src/components/quantity-stepper.tsx           new
-src/components/section-header.tsx             new
-src/components/filter-sheet.tsx               new mobile filter
-src/components/checkout-stepper.tsx           new
-src/components/stat-card.tsx                  new for dashboards
-src/components/footer.tsx                     redesigned
-src/routes/__root.tsx                         mount bottom nav + new shell
-src/routes/index.tsx                          full home rebuild
-src/routes/materials.tsx                      filter bar + grid/list
-src/routes/materials.$productId.tsx           gallery + sticky CTA
-src/routes/checkout.tsx                       3-step stepper
-src/routes/auth.tsx                           split layout
-src/routes/_authenticated/dashboard.tsx       buyer redesign
-src/routes/_authenticated/supplier.tsx        supplier redesign
-src/routes/_authenticated/admin.tsx           admin redesign
-```
-
-No DB migrations, no server function changes, no auth/RLS changes.
-
-## Technical notes
-
-- All colors via tokens in `src/styles.css` (`--primary`, `--accent`, etc.) — no hard-coded hex in components.
-- `oklch` values for the new palette:
-  - `--primary` orange `#FF6A00` ≈ `oklch(0.68 0.21 45)`
-  - `--accent` amber `#F97316` ≈ `oklch(0.72 0.19 50)`
-  - `--background` cream `#FFF7ED` ≈ `oklch(0.985 0.02 75)`
-  - `--foreground` / sidebar charcoal `#111827` ≈ `oklch(0.21 0.03 260)`
-- Dark mode kept (charcoal surface + orange CTA).
-- Bottom nav rendered only on mobile (`md:hidden`) and only when not on auth route; route detection via `useRouterState`.
-- Keep all `createServerFn` calls and TanStack Query usage as-is.
-- Cart logic in `src/lib/cart.ts` unchanged; UI rewritten.
-- Use existing shadcn `sheet`, `tabs`, `dialog`, `dropdown-menu`, `drawer` for new patterns.
-
-## Out of scope (this pass)
-
-- Product reviews data model
-- Real-time order tracking
-- Image upload pipeline (still placeholder + URL field)
-- Payments
+Approve and I'll swap the credentials.
