@@ -1,39 +1,51 @@
-# Switch Envora to your Supabase project
 
-You confirmed the schema is applied on your project, so this is purely a credentials + types swap.
+# Move Envora to your Supabase project
+
+You confirmed the schema is fully applied on `myrhqvedhjmfdtzmkmet`, so this is a credentials + types swap, not a data migration.
 
 ## What I'll do
 
-1. **Update `.env`** with your project values:
+1. **Update `.env`** to point at your project:
    - `VITE_SUPABASE_URL` / `SUPABASE_URL` → `https://myrhqvedhjmfdtzmkmet.supabase.co`
-   - `VITE_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_PUBLISHABLE_KEY` → your `sb_publishable_...` key
-   - Remove `*_PROJECT_ID` (no longer applicable to your project).
-2. **Store `SUPABASE_SERVICE_ROLE_KEY`** (your `sb_secret_...`) via the secrets tool so server functions can use `supabaseAdmin`.
-3. **Regenerate `src/integrations/supabase/types.ts`** to match your project's schema so all server fns/components stay type-safe.
-4. **Restart dev server** so Vite picks up the new env values.
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_PUBLISHABLE_KEY` → `sb_publishable_NnCU6JbG-3dIZ64FVAZcdw_99MLnbaM`
+   - Remove `VITE_SUPABASE_PROJECT_ID` / `SUPABASE_PROJECT_ID` (Lovable Cloud–specific).
 
-## Heads-up (read before approving)
+2. **Prompt you for the service role key** via the secure secrets tool and store it as `SUPABASE_SERVICE_ROLE_KEY` (used by `client.server.ts` for public product listing, admin actions, and server-side writes). I will NOT ask you to paste it into chat.
 
-- **Data does not migrate.** Existing users, products, categories, orders on Lovable Cloud stay on Lovable Cloud. Your app will start empty (whatever is in your project).
-- **Re-register at `/auth`.** The first account on your project starts as BUYER. To promote yourself to ADMIN, run this in your Supabase SQL editor after signing up:
+3. **Regenerate `src/integrations/supabase/types.ts`** against your project so all server functions and the `Database` generic stay type-safe.
+
+4. **Keep the Google sign-in button.** Heads-up: it currently goes through the Lovable broker. On your project it will fail until you:
+   - In your Supabase Dashboard → Authentication → Providers → enable Google with your Google Cloud OAuth Client ID + Secret.
+   - In Google Cloud Console → add `https://myrhqvedhjmfdtzmkmet.supabase.co/auth/v1/callback` as an authorized redirect URI.
+   - I'll also swap the sign-in call from `lovable.auth.signInWithOAuth("google", ...)` to `supabase.auth.signInWithOAuth({ provider: "google", ... })` so it goes direct to your project instead of the broker.
+   Email/password keeps working immediately after the swap.
+
+5. **Restart the dev server** so Vite picks up the new env values.
+
+## Verification (after the swap)
+
+- Read `import.meta.env.VITE_SUPABASE_URL` in the running preview — must equal `https://myrhqvedhjmfdtzmkmet.supabase.co`.
+- Invoke `listCategories` / `listProducts` server functions and confirm responses come from your project.
+- Ask you to sign up a fresh test account at `/auth`, then query your Supabase SQL editor for the new row in `public.profiles` to confirm the write landed on your DB.
+
+## Things to know
+
+- **No data migrates.** Anything on the Lovable Cloud project (users, products, orders, inquiries, images) stays there. Your app starts with whatever is already in your project.
+- **You start as BUYER.** The `handle_new_user` trigger defaults new signups to BUYER. To promote yourself to ADMIN, run in your Supabase SQL editor after signing up:
   ```sql
   update public.profiles set role='ADMIN' where email='you@example.com';
   insert into public.user_roles(user_id, role)
     select id, 'ADMIN' from auth.users where email='you@example.com'
     on conflict do nothing;
   ```
-- **Google sign-in** currently uses the Lovable broker. On your own project it will fail until you configure Google in Supabase → Authentication → Providers (Client ID/Secret + add `https://myrhqvedhjmfdtzmkmet.supabase.co/auth/v1/callback` to Google Console). Email/password keeps working immediately.
-- **Lovable Cloud tools stop applying** to this app: the in-app DB migration tool, security scanner, and backend UI all point to the Cloud project, not yours. Future schema changes you'll run yourself in the Supabase SQL editor.
-- **Storage:** the `product-images` bucket existed on Cloud. Make sure you created the equivalent bucket on your project (private, with the same policies) or product image uploads will fail.
+- **Storage:** confirm a private `product-images` bucket exists on your project with the right RLS policies, otherwise product image uploads will 403.
+- **Lovable Cloud tooling stops applying.** The in-app migration tool, security scanner, and "View Backend" button all point at the Lovable Cloud project. Future schema changes you run yourself in your Supabase SQL editor.
+- The `_authenticated/` gate, auth-attacher, and RLS keep working unchanged — they don't care which Supabase project the env points at.
 
-## If anything is missing in your schema
+## Technical details
 
-Tell me which of these you have on your project and I'll send back exact SQL for the gaps:
-- enum `app_role` (`BUYER`,`SUPPLIER`,`ADMIN`) and enum `order_status`
-- tables: `profiles`, `user_roles`, `categories`, `products`, `orders`, `order_items`, `inquiries`
-- functions: `has_role`, `handle_new_user`, `order_belongs_to_supplier`, `set_updated_at`
-- trigger on `auth.users` calling `handle_new_user`
-- RLS enabled + policies on every table above
-- storage bucket `product-images`
+- Files touched: `.env` (credentials), `src/integrations/supabase/types.ts` (regenerated), `src/routes/auth.tsx` (swap Google call from `lovable` broker to `supabase.auth.signInWithOAuth`). Nothing else needs code changes — `client.ts`, `client.server.ts`, and `auth-middleware.ts` already read from env.
+- Server-runtime secrets: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+- I will NOT delete the existing Lovable Cloud secrets — harmless once env points elsewhere, and keeping them makes a rollback trivial.
 
-Approve and I'll swap the credentials.
+Approve and I'll do the swap, prompt you for the service role key, regenerate types, and run the verification.
